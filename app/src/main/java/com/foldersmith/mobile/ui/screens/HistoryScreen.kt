@@ -1,11 +1,15 @@
 package com.foldersmith.mobile.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.foldersmith.mobile.model.ScanType
 import com.foldersmith.mobile.ui.AppUiState
 import com.foldersmith.mobile.ui.formatDateTime
@@ -20,7 +24,10 @@ fun HistoryScreen(state: AppUiState, onUndo: (Long) -> Unit) {
         } else {
             sessions.forEach { session ->
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    ScreenColumn {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(session.createdAt.safeHistoryDate())
                         Text("${session.scanType.historyLabel()} - ${session.summary.ifBlank { "Scan saved" }}")
                         Text(if (session.canUndo) "Undo may be possible for moves." else "No applied changes to undo.")
