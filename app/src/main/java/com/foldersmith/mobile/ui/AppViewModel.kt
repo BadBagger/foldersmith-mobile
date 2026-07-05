@@ -14,6 +14,7 @@ import com.foldersmith.mobile.model.CleanupPlanSummary
 import com.foldersmith.mobile.model.DashboardSummary
 import com.foldersmith.mobile.model.ScanRequest
 import com.foldersmith.mobile.model.ScanType
+import com.foldersmith.mobile.organize.OrganizeProgress
 import com.foldersmith.mobile.scanner.ScanProgress
 import com.foldersmith.mobile.scanner.ScanStep
 import kotlinx.coroutines.Job
@@ -34,6 +35,7 @@ data class AppUiState(
     val downloads: List<ScannedFileEntity> = emptyList(),
     val photoEvents: List<PhotoEventEntity> = emptyList(),
     val scanProgress: ScanProgress = ScanProgress(),
+    val organizeProgress: OrganizeProgress = OrganizeProgress(),
     val isScanning: Boolean = false
 ) {
     val planSummary: CleanupPlanSummary
@@ -56,6 +58,7 @@ private data class LibraryUiState(
 
 class AppViewModel(private val repository: FolderSmithRepository) : ViewModel() {
     private val scanProgress = MutableStateFlow(ScanProgress())
+    private val organizeProgress = MutableStateFlow(OrganizeProgress())
     private val isScanning = MutableStateFlow(false)
     private var scanJob: Job? = null
 
@@ -81,8 +84,9 @@ class AppViewModel(private val repository: FolderSmithRepository) : ViewModel() 
         coreState,
         libraryState,
         scanProgress,
+        organizeProgress,
         isScanning
-    ) { core, library, progress, scanning ->
+    ) { core, library, progress, organizeProgress, scanning ->
         AppUiState(
             dashboard = core.dashboard,
             files = core.files,
@@ -93,6 +97,7 @@ class AppViewModel(private val repository: FolderSmithRepository) : ViewModel() 
             downloads = library.downloads,
             photoEvents = library.photoEvents,
             scanProgress = progress,
+            organizeProgress = organizeProgress,
             isScanning = scanning
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
@@ -127,6 +132,22 @@ class AppViewModel(private val repository: FolderSmithRepository) : ViewModel() 
     fun undoSession(sessionId: Long) {
         viewModelScope.launch {
             repository.markSessionUndone(sessionId)
+        }
+    }
+
+    fun applyCleanupPlan(destinationTreeUri: String) {
+        if (organizeProgress.value.isApplying) return
+        viewModelScope.launch {
+            organizeProgress.value = OrganizeProgress(isApplying = true, message = "Preparing organized folder")
+            try {
+                repository.applyCleanupPlan(destinationTreeUri) { progress ->
+                    organizeProgress.value = progress
+                }
+            } catch (exception: SecurityException) {
+                organizeProgress.value = OrganizeProgress(message = "Folder permission was denied")
+            } catch (exception: Exception) {
+                organizeProgress.value = OrganizeProgress(message = exception.message ?: "Organizing failed")
+            }
         }
     }
 }

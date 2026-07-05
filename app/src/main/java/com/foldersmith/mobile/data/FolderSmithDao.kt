@@ -28,6 +28,9 @@ interface FolderSmithDao {
     @Update
     suspend fun updateCleanupAction(action: CleanupActionEntity)
 
+    @Update
+    suspend fun updateCleanupActions(actions: List<CleanupActionEntity>)
+
     @Query("SELECT * FROM scanned_files ORDER BY dateModified DESC")
     fun observeFiles(): Flow<List<ScannedFileEntity>>
 
@@ -54,6 +57,9 @@ interface FolderSmithDao {
 
     @Query("UPDATE cleanup_actions SET status = :status WHERE sessionId = :sessionId AND status = :fromStatus")
     suspend fun updateSessionActionStatus(sessionId: Long, fromStatus: CleanupStatus, status: CleanupStatus)
+
+    @Query("UPDATE cleanup_sessions SET summary = :summary, canUndo = :canUndo WHERE id = :sessionId")
+    suspend fun updateCleanupSessionSummary(sessionId: Long, summary: String, canUndo: Boolean)
 
     @Query("DELETE FROM scanned_files")
     suspend fun clearScannedFiles()

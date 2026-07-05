@@ -9,15 +9,20 @@ import com.foldersmith.mobile.model.DashboardSummary
 import com.foldersmith.mobile.model.FileCategory
 import com.foldersmith.mobile.model.ScanRequest
 import com.foldersmith.mobile.model.ScanType
+import com.foldersmith.mobile.organize.OrganizeProgress
+import com.foldersmith.mobile.organize.OrganizeResult
+import com.foldersmith.mobile.organize.SafeFileOrganizer
 import com.foldersmith.mobile.scanner.ContentScanner
 import com.foldersmith.mobile.scanner.ScanProgress
 import com.foldersmith.mobile.scanner.ScanStep
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class FolderSmithRepository(
     private val database: FolderSmithDatabase,
+    private val organizer: SafeFileOrganizer,
     private val scanner: ContentScanner
 ) {
     private val dao = database.dao()
@@ -89,6 +94,28 @@ class FolderSmithRepository(
         if (undoable.isNotEmpty()) {
             dao.updateSessionActionStatus(sessionId, CleanupStatus.Applied, CleanupStatus.Undone)
         }
+    }
+
+    suspend fun applyCleanupPlan(
+        destinationTreeUri: String,
+        onProgress: suspend (OrganizeProgress) -> Unit
+    ): OrganizeResult {
+        val currentFiles = files.first()
+        val currentActions = cleanupActions.first()
+        val result = organizer.applyPlan(destinationTreeUri, currentFiles, currentActions, onProgress)
+        if (result.updatedActions.isNotEmpty()) {
+            dao.updateCleanupActions(result.updatedActions)
+            result.updatedActions.groupBy { it.sessionId }.forEach { (sessionId, actions) ->
+                val copied = actions.count { it.status == CleanupStatus.Applied }
+                val failed = actions.count { it.status == CleanupStatus.Failed }
+                dao.updateCleanupSessionSummary(
+                    sessionId = sessionId,
+                    summary = "Copied $copied files to FolderSmith Organized. $failed failed.",
+                    canUndo = false
+                )
+            }
+        }
+        return result
     }
 
     fun scanTypes(): List<ScanType> = ScanType.entries

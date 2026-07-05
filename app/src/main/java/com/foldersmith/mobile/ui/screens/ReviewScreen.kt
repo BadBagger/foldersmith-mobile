@@ -1,10 +1,14 @@
 package com.foldersmith.mobile.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -14,11 +18,27 @@ import androidx.compose.ui.unit.dp
 import com.foldersmith.mobile.data.CleanupActionEntity
 import com.foldersmith.mobile.data.ScannedFileEntity
 import com.foldersmith.mobile.model.CleanupActionType
+import com.foldersmith.mobile.model.CleanupStatus
 import com.foldersmith.mobile.ui.AppUiState
 import com.foldersmith.mobile.ui.formatBytes
 
 @Composable
-fun ReviewScreen(state: AppUiState, onOpenOrganizedFolder: () -> Unit) {
+fun ReviewScreen(
+    state: AppUiState,
+    onOpenOrganizedFolder: () -> Unit,
+    onApplyCleanup: (String) -> Unit
+) {
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            onApplyCleanup(uri.toString())
+        }
+    }
+    val actionableCount = state.cleanupActions.count {
+        it.status == CleanupStatus.Planned && it.actionType in setOf(CleanupActionType.Move, CleanupActionType.Archive)
+    }
+
     ScreenColumn {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Review plan", style = MaterialTheme.typography.headlineSmall)
@@ -60,22 +80,29 @@ fun ReviewScreen(state: AppUiState, onOpenOrganizedFolder: () -> Unit) {
             state = state,
             emptyText = "No screenshots, downloads, or documents need organization from this scan."
         )
-        PlanLane(
-            title = "Keep untouched",
-            actionType = CleanupActionType.Keep,
-            state = state,
-            emptyText = "No keep-only files in this plan."
-        )
-
         SectionCard(
             title = "Next step",
-            body = "Open FolderSmith Organized to confirm destination folders. Applying moves is intentionally separate from scanning."
+            body = "Choose where FolderSmith should create its organized folder. This copies files first and leaves originals untouched."
         ) {
+            if (state.organizeProgress.isApplying) {
+                LinearProgressIndicator(
+                    progress = {
+                        if (state.organizeProgress.total == 0) 0f
+                        else state.organizeProgress.completed.toFloat() / state.organizeProgress.total.toFloat()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Text(state.organizeProgress.message, style = MaterialTheme.typography.bodyMedium)
             Button(onClick = onOpenOrganizedFolder, modifier = Modifier.fillMaxWidth()) {
                 Text("Review organized destinations")
             }
-            OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                Text("Apply selected actions - coming next")
+            OutlinedButton(
+                onClick = { folderPicker.launch(null) },
+                enabled = actionableCount > 0 && !state.organizeProgress.isApplying,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Choose folder and copy $actionableCount files")
             }
         }
     }

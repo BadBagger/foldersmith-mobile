@@ -91,7 +91,11 @@ fun FolderSmithApp(repository: FolderSmithRepository) {
                 ScanScreen(state = state, onStartScan = viewModel::startScan, onCancel = viewModel::cancelScan)
             }
             composable("review") {
-                ReviewScreen(state = state, onOpenOrganizedFolder = { navController.navigate("organized") })
+                ReviewScreen(
+                    state = state,
+                    onOpenOrganizedFolder = { navController.navigate("organized") },
+                    onApplyCleanup = viewModel::applyCleanupPlan
+                )
             }
             composable("history") {
                 HistoryScreen(state = state, onUndo = viewModel::undoSession)
