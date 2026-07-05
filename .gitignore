@@ -5,3 +5,5 @@ local.properties
 *.iml
 app/build/
 .codex-remote-attachments/
+*.apk
+*.aab
