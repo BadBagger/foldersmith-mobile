@@ -6,12 +6,12 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,25 +50,40 @@ fun ScanScreen(
     }
 
     ScreenColumn {
-        Text("Safe scan")
-        Text("Choose what to scan. FolderSmith asks only for access needed for the selected content and shows results before any action.")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            ScanType.entries.forEach { type ->
-                FilterChip(
-                    selected = selected.value == type,
-                    onClick = { selected.value = type },
-                    label = { Text(type.name.replace("SelectedFolder", "Folder")) }
-                )
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Safe scan", style = MaterialTheme.typography.headlineSmall)
+            Text("Pick one source. FolderSmith builds a preview before anything changes.")
         }
-        Card(modifier = Modifier.fillMaxWidth()) {
-            ScreenColumn {
-                Text("What the app can access")
-                Text("Photos and screenshots use Android media permissions. Downloads use MediaStore where Android allows it. Selected folders use Android's folder picker.")
-                Text("What it cannot do")
-                Text("It cannot delete, move, or archive anything until a cleanup plan is reviewed and confirmed.")
-            }
+
+        SectionCard(title = "1. Choose source") {
+            ScanChoice("Photos", selected.value == ScanType.Photos) { selected.value = ScanType.Photos }
+            ScanChoice("Screenshots", selected.value == ScanType.Screenshots) { selected.value = ScanType.Screenshots }
+            ScanChoice("Downloads", selected.value == ScanType.Downloads) { selected.value = ScanType.Downloads }
+            ScanChoice("Selected folder", selected.value == ScanType.SelectedFolder) { selected.value = ScanType.SelectedFolder }
         }
+
+        SectionCard(
+            title = "2. What FolderSmith will build",
+            body = when (selected.value) {
+                ScanType.Photos -> "Photo events, exact duplicates, and large media worth reviewing."
+                ScanType.Screenshots -> "Screenshot groups with a destination like FolderSmith Organized/Screenshots/Review."
+                ScanType.Downloads -> "Downloads grouped into APKs, archives, PDFs, documents, and general files."
+                ScanType.SelectedFolder -> "A safe plan for the folder you choose through Android's folder picker."
+            }
+        )
+
+        SectionCard(
+            title = "3. Next step",
+            body = if (state.cleanupActions.isEmpty()) {
+                "After the scan, go to Review to approve or change the cleanup plan."
+            } else {
+                "Results are ready. Open Review to inspect destinations and choose what to apply."
+            }
+        ) {
+            StatusPill("${state.dashboard.filesScanned} files in latest plan")
+            StatusPill("${state.dashboard.duplicatesFound} duplicate candidates")
+        }
+
         if (state.isScanning) {
             LinearProgressIndicator(
                 progress = {
@@ -91,9 +106,19 @@ fun ScanScreen(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Start selected scan")
+                Text("Scan selected source")
             }
             Text(state.scanProgress.message)
         }
     }
+}
+
+@Composable
+private fun ScanChoice(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth()
+    )
 }

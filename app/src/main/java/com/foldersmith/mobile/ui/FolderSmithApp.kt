@@ -57,13 +57,13 @@ fun FolderSmithApp(repository: FolderSmithRepository) {
                         onClick = {
                             navController.navigate(destination.route) {
                                 popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                                    saveState = false
                                 }
                                 launchSingleTop = true
-                                restoreState = true
+                                restoreState = false
                             }
                         },
-                        icon = { Text(destination.label.take(1)) },
+                        icon = {},
                         label = { Text(destination.label) }
                     )
                 }
@@ -91,7 +91,7 @@ fun FolderSmithApp(repository: FolderSmithRepository) {
                 ScanScreen(state = state, onStartScan = viewModel::startScan, onCancel = viewModel::cancelScan)
             }
             composable("review") {
-                ReviewScreen(state = state)
+                ReviewScreen(state = state, onOpenOrganizedFolder = { navController.navigate("organized") })
             }
             composable("history") {
                 HistoryScreen(state = state, onUndo = viewModel::undoSession)

@@ -33,7 +33,22 @@ class CleanupPlannerTest {
         assertEquals(100, summary.estimatedBytes)
     }
 
-    private fun file(id: Long, size: Long) = ScannedFileEntity(
+    @Test
+    fun movesScreenshotsAndDocumentsToSafeDestinations() {
+        val files = listOf(
+            file(1, 100, FileCategory.Screenshot),
+            file(2, 50, FileCategory.Pdf)
+        )
+
+        val plan = CleanupPlanner.buildPlan(files, emptyList(), sessionId = 10)
+
+        assertEquals(CleanupActionType.Move, plan.first { it.fileId == 1L }.actionType)
+        assertEquals("FolderSmith Organized/Screenshots/Review", plan.first { it.fileId == 1L }.destinationUri)
+        assertEquals(CleanupActionType.Move, plan.first { it.fileId == 2L }.actionType)
+        assertEquals("FolderSmith Organized/Documents/PDFs", plan.first { it.fileId == 2L }.destinationUri)
+    }
+
+    private fun file(id: Long, size: Long, category: FileCategory = FileCategory.Image) = ScannedFileEntity(
         id = id,
         uri = "content://file/$id",
         displayName = "file-$id.jpg",
@@ -44,7 +59,7 @@ class CleanupPlannerTest {
         dateTaken = null,
         folderLabel = "Pictures",
         hash = "same",
-        category = FileCategory.Image,
+        category = category,
         scanId = 1
     )
 }

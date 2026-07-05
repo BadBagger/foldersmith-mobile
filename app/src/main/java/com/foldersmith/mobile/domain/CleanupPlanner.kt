@@ -23,14 +23,24 @@ object CleanupPlanner {
             val actionType = when {
                 file.accessDenied -> CleanupActionType.Ignore
                 file.id in duplicateArchiveIds -> CleanupActionType.Archive
-                file.category in setOf(FileCategory.Screenshot, FileCategory.Download, FileCategory.Apk, FileCategory.Zip) -> CleanupActionType.Keep
+                file.category in setOf(FileCategory.Screenshot, FileCategory.Download, FileCategory.Apk, FileCategory.Zip, FileCategory.Pdf, FileCategory.Document) -> CleanupActionType.Move
                 else -> CleanupActionType.Keep
+            }
+            val destination = when {
+                file.id in duplicateArchiveIds -> "FolderSmith Organized/Duplicates"
+                file.category == FileCategory.Screenshot -> "FolderSmith Organized/Screenshots/Review"
+                file.category == FileCategory.Download -> "FolderSmith Organized/Downloads/General"
+                file.category == FileCategory.Apk -> "FolderSmith Organized/Downloads/APK Installers"
+                file.category == FileCategory.Zip -> "FolderSmith Organized/Downloads/Archives"
+                file.category == FileCategory.Pdf -> "FolderSmith Organized/Documents/PDFs"
+                file.category == FileCategory.Document -> "FolderSmith Organized/Documents"
+                else -> null
             }
             CleanupActionEntity(
                 fileId = file.id,
                 actionType = actionType,
                 sourceUri = file.uri,
-                destinationUri = null,
+                destinationUri = destination,
                 status = CleanupStatus.Planned,
                 sessionId = sessionId
             )
