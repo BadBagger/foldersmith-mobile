@@ -18,7 +18,6 @@ import androidx.navigation.compose.rememberNavController
 import com.foldersmith.mobile.data.FolderSmithRepository
 import com.foldersmith.mobile.ui.screens.DownloadsScreen
 import com.foldersmith.mobile.ui.screens.DuplicatesScreen
-import com.foldersmith.mobile.ui.screens.FridgePlusPaywallScreen
 import com.foldersmith.mobile.ui.screens.HistoryScreen
 import com.foldersmith.mobile.ui.screens.HomeScreen
 import com.foldersmith.mobile.ui.screens.OrganizedFolderScreen
@@ -102,18 +101,7 @@ fun FolderSmithApp(repository: FolderSmithRepository) {
                 HistoryScreen(state = state, onUndo = viewModel::undoSession)
             }
             composable("settings") {
-                SettingsScreen(
-                    subscriptionState = state.fridgeSubscription,
-                    onOpenPlus = { navController.navigate("fridgePlus") },
-                    onRestorePurchases = viewModel::restorePlusPurchases
-                )
-            }
-            composable("fridgePlus") {
-                FridgePlusPaywallScreen(
-                    subscriptionState = state.fridgeSubscription,
-                    onStartPurchase = viewModel::startPlusPurchase,
-                    onBack = { navController.popBackStack() }
-                )
+                SettingsScreen()
             }
             composable("duplicates") {
                 DuplicatesScreen(state = state)

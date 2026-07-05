@@ -17,10 +17,6 @@ import com.foldersmith.mobile.model.ScanType
 import com.foldersmith.mobile.organize.OrganizeProgress
 import com.foldersmith.mobile.scanner.ScanProgress
 import com.foldersmith.mobile.scanner.ScanStep
-import com.foldersmith.mobile.subscription.BillingGateway
-import com.foldersmith.mobile.subscription.BillingResult
-import com.foldersmith.mobile.subscription.FridgeSubscriptionState
-import com.foldersmith.mobile.subscription.PlaceholderBillingGateway
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,7 +36,6 @@ data class AppUiState(
     val photoEvents: List<PhotoEventEntity> = emptyList(),
     val scanProgress: ScanProgress = ScanProgress(),
     val organizeProgress: OrganizeProgress = OrganizeProgress(),
-    val fridgeSubscription: FridgeSubscriptionState = FridgeSubscriptionState(),
     val isScanning: Boolean = false
 ) {
     val planSummary: CleanupPlanSummary
@@ -61,31 +56,11 @@ private data class LibraryUiState(
     val photoEvents: List<PhotoEventEntity>
 )
 
-private data class ProgressUiState(
-    val scanProgress: ScanProgress,
-    val organizeProgress: OrganizeProgress,
-    val fridgeSubscription: FridgeSubscriptionState,
-    val isScanning: Boolean
-)
-
-class AppViewModel(
-    private val repository: FolderSmithRepository,
-    private val billingGateway: BillingGateway = PlaceholderBillingGateway()
-) : ViewModel() {
+class AppViewModel(private val repository: FolderSmithRepository) : ViewModel() {
     private val scanProgress = MutableStateFlow(ScanProgress())
     private val organizeProgress = MutableStateFlow(OrganizeProgress())
-    private val fridgeItemCount = MutableStateFlow(0)
-    private val billingMessage = MutableStateFlow<String?>(null)
     private val isScanning = MutableStateFlow(false)
     private var scanJob: Job? = null
-
-    private val fridgeSubscription = combine(
-        billingGateway.subscriptionTier,
-        fridgeItemCount,
-        billingMessage
-    ) { tier, count, message ->
-        FridgeSubscriptionState(tier = tier, fridgeItemCount = count, billingMessage = message)
-    }
 
     private val coreState = combine(
         repository.dashboardSummary,
@@ -105,20 +80,13 @@ class AppViewModel(
         LibraryUiState(screenshots, downloads, events)
     }
 
-    private val progressState = combine(
-        scanProgress,
-        organizeProgress,
-        fridgeSubscription,
-        isScanning
-    ) { scanProgress, organizeProgress, subscription, scanning ->
-        ProgressUiState(scanProgress, organizeProgress, subscription, scanning)
-    }
-
     val uiState: StateFlow<AppUiState> = combine(
         coreState,
         libraryState,
-        progressState
-    ) { core, library, progress ->
+        scanProgress,
+        organizeProgress,
+        isScanning
+    ) { core, library, progress, organizeProgress, scanning ->
         AppUiState(
             dashboard = core.dashboard,
             files = core.files,
@@ -128,10 +96,9 @@ class AppViewModel(
             screenshots = library.screenshots,
             downloads = library.downloads,
             photoEvents = library.photoEvents,
-            scanProgress = progress.scanProgress,
-            organizeProgress = progress.organizeProgress,
-            fridgeSubscription = progress.fridgeSubscription,
-            isScanning = progress.isScanning
+            scanProgress = progress,
+            organizeProgress = organizeProgress,
+            isScanning = scanning
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 
@@ -181,26 +148,6 @@ class AppViewModel(
             } catch (exception: Exception) {
                 organizeProgress.value = OrganizeProgress(message = exception.message ?: "Organizing failed")
             }
-        }
-    }
-
-    fun startPlusPurchase() {
-        viewModelScope.launch {
-            billingMessage.value = billingGateway.startPlusPurchase().toUserMessage()
-        }
-    }
-
-    fun restorePlusPurchases() {
-        viewModelScope.launch {
-            billingMessage.value = billingGateway.restorePurchases().toUserMessage()
-        }
-    }
-
-    private fun BillingResult.toUserMessage(): String {
-        return when (this) {
-            BillingResult.Unavailable -> "Google Play Billing is not connected yet. No purchase was started."
-            BillingResult.Pending -> "Purchase is pending."
-            is BillingResult.Failed -> reason
         }
     }
 }
