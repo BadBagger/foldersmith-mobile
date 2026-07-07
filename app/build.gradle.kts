@@ -1,9 +1,23 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
 }
+
+val releaseKeystorePropertiesFile = rootProject.file("keystore.properties")
+val releaseKeystoreProperties = Properties()
+val hasReleaseSigningProperties = releaseKeystorePropertiesFile.isFile
+
+if (hasReleaseSigningProperties) {
+    releaseKeystorePropertiesFile.inputStream().use { releaseKeystoreProperties.load(it) }
+}
+
+fun releaseSigningProperty(name: String): String =
+    releaseKeystoreProperties.getProperty(name)?.takeIf { it.isNotBlank() }
+        ?: throw GradleException("Missing $name in local keystore.properties")
 
 android {
     namespace = "com.foldersmith.mobile"
@@ -19,9 +33,30 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigningProperties) {
+            create("release") {
+                val configuredStoreFile = file(releaseSigningProperty("storeFile"))
+                if (!configuredStoreFile.isAbsolute) {
+                    throw GradleException("storeFile in keystore.properties must be an absolute path")
+                }
+                if (!configuredStoreFile.isFile) {
+                    throw GradleException("Release keystore file does not exist")
+                }
+                storeFile = configuredStoreFile
+                storePassword = releaseSigningProperty("storePassword")
+                keyAlias = releaseSigningProperty("keyAlias")
+                keyPassword = releaseSigningProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigningProperties) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -40,6 +75,19 @@ android {
 
     buildFeatures {
         compose = true
+    }
+}
+
+tasks.matching { task ->
+    task.name == "assembleRelease" || task.name == "bundleRelease"
+}.configureEach {
+    doFirst {
+        if (!hasReleaseSigningProperties) {
+            throw GradleException(
+                "Release signing requires local keystore.properties. " +
+                    "Copy keystore.properties.example, fill it locally, and keep it out of git."
+            )
+        }
     }
 }
 
